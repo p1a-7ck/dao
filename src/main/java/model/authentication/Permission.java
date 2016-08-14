@@ -14,6 +14,7 @@ public class Permission<T> {
         this.id = reflectiveBuilder.getFieldValue("id");
         this.name = reflectiveBuilder.getFieldValue("name");
         this.value = reflectiveBuilder.getFieldValue("value");
+        reflectiveBuilder.clearFieldValueMap();
     }
 
     public Long getId() {

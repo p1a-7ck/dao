@@ -16,6 +16,7 @@ public class Role {
         this.id = reflectiveBuilder.getFieldValue("id");
         this.name = reflectiveBuilder.getFieldValue("name");
         this.permissionList = reflectiveBuilder.getFieldValueList("permissionList");
+        reflectiveBuilder.clearFieldValueMap();
     }
 
     public Long getId() {
