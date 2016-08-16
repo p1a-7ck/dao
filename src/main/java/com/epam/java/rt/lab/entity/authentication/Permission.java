@@ -1,9 +1,9 @@
-package model.authentication;
+package com.epam.java.rt.lab.entity.authentication;
 
-import model.reflection.ReflectiveBuilder;
+import com.epam.java.rt.lab.entity.reflection.ReflectiveBuilder;
 
 /**
- * dao
+ * com.epam.java.rt.lab.dao
  */
 public class Permission<T> {
     private final Long id;

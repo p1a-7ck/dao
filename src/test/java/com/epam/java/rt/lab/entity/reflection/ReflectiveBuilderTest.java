@@ -1,4 +1,4 @@
-package model.reflection;
+package com.epam.java.rt.lab.entity.reflection;
 
 import org.junit.After;
 import org.junit.Before;
@@ -11,7 +11,7 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 /**
- * dao
+ * com.epam.java.rt.lab.dao
  */
 public class ReflectiveBuilderTest {
     ReflectiveBuilder reflectiveBuilder;

@@ -1,6 +1,6 @@
-package model.authentication;
+package com.epam.java.rt.lab.entity.authentication;
 
-import model.reflection.ReflectiveBuilder;
+import com.epam.java.rt.lab.entity.reflection.ReflectiveBuilder;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,7 +11,7 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 /**
- * dao
+ * com.epam.java.rt.lab.dao
  */
 public class RoleTest {
     Role role;

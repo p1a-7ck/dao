@@ -1,4 +1,4 @@
-package model.reflection;
+package com.epam.java.rt.lab.entity.reflection;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * dao
+ * com.epam.java.rt.lab.dao
  */
 public class ReflectiveBuilder {
     private final Map<String, List<?>> fieldValueMap;
