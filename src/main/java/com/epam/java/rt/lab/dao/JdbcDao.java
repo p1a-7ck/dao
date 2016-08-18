@@ -1,12 +1,9 @@
 package com.epam.java.rt.lab.dao;
 
-import com.epam.java.rt.lab.dao.factory.DaoFactory;
-import com.epam.java.rt.lab.dao.factory.H2TableFactory;
+import com.epam.java.rt.lab.dao.factory.JdbcConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -16,36 +13,29 @@ import java.sql.SQLException;
  */
 abstract class JdbcDao implements Dao {
     private static final Logger logger = LoggerFactory.getLogger(JdbcDao.class);
-    private Class<? extends DaoFactory> factoryClass;
+    private JdbcConnectionFactory connectionFactory = null;
     private Connection connection = null;
     private PreparedStatement preparedStatement = null;
 
-    JdbcDao(Class<? extends DaoFactory> factoryClass) {
-        this.factoryClass = factoryClass;
+    JdbcDao(JdbcConnectionFactory connectionFactory) {
+        this.connectionFactory = connectionFactory;
     }
 
     private boolean createConnection() {
         try {
-            Method method = this.factoryClass.getMethod("createConnection");
-            this.connection = (Connection) method.invoke(null);
+            this.connection = this.connectionFactory.getConnection();
             return true;
-        } catch (NoSuchMethodException exc) {
-            logger.error("Static method 'createConnection' for factoryClass '{}' not found\n{}",
-                    this.factoryClass.getSimpleName(), exc.getMessage());
-        } catch (IllegalAccessException exc) {
-            logger.error("Static method 'createConnection' for factoryClass '{}' access error\n{}",
-                    this.factoryClass.getSimpleName(), exc.getMessage());
-        } catch (InvocationTargetException exc) {
-            logger.error(exc.getMessage());
+        } catch (SQLException exc) {
+            logger.error("Connection create error", exc);
         }
         return false;
     }
 
     private void closeConnection() {
         try {
-            this.connection.close();
+            this.connectionFactory.releaseConnection(this.connection);
         } catch (SQLException exc) {
-            logger.error("Connection closing error\n{}", exc.getMessage());
+            logger.error("Connection closing error", exc);
         }
     }
 
@@ -70,31 +60,6 @@ abstract class JdbcDao implements Dao {
     abstract StringBuilder getFieldsAndValuesPartSqlExpression(Class<?> entityClass);
 
     abstract boolean setValueInsteadWildcards(PreparedStatement preparedStatement, Object entityObject);
-
-    @Override
-    public final boolean createTable(Class<?> entityClass) {
-        if (!this.createConnection()) return false;
-        StringBuilder sqlExpression = H2TableFactory.getCreateTableExpression(entityClass);
-        logger.info(sqlExpression.toString());
-        if (!this.createPreparedStatement(sqlExpression.toString())) {
-            this.closeConnection();
-            return false;
-        }
-        try {
-            boolean result = this.preparedStatement.execute();
-            if (result) logger.info("Table create for entity '{}' sql expression executed successfully",
-                    entityClass.getSimpleName());
-            else logger.info("Table create for entity '{}' sql expression not executed",
-                    entityClass.getSimpleName());
-            return result;
-        } catch (SQLException exc) {
-            logger.error("Prepared statement execution error\n{}", exc.getMessage());
-        } finally {
-            this.closePreparedStatement();
-            this.closeConnection();
-        }
-        return false;
-    }
 
     @Override
     public final int insert(Object entityObject) {

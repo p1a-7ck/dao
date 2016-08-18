@@ -1,42 +1,50 @@
 package com.epam.java.rt.lab.entity.authentication;
 
-import com.epam.java.rt.lab.entity.reflection.ReflectiveBuilder;
+import com.epam.java.rt.lab.entity.BaseEntity;
 
 import java.util.List;
 
 /**
  * com.epam.java.rt.lab.dao
  */
-public class User {
-    private final Long id;
-    private final String login;
-    private final String pass;
-    private final List<Role> roleList;
+public class User extends BaseEntity {
+    private String login;
+    private String pass;
+    private List<Role> roleList;
 
-    public User(ReflectiveBuilder reflectiveBuilder) {
-        this.id = reflectiveBuilder.getFieldValue("id");
-        this.login = reflectiveBuilder.getFieldValue("login");
-        this.pass = reflectiveBuilder.getFieldValue("pass");
-        this.roleList = reflectiveBuilder.getFieldValueList("roleList");
-        reflectiveBuilder.clearFieldValueMap();
-    }
-
-    public Long getId() {
-        return this.id;
+    public User() {
     }
 
     public String getLogin() {
-        return this.login;
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
     }
 
     public String getPass() {
-        return this.pass;
+        return pass;
+    }
+
+    public void setPass(String pass) {
+        this.pass = pass;
     }
 
     public Role getRole(int index) {
         if (index < 0 || index >= this.roleList.size())
             throw new IllegalArgumentException("Role index out of bound");
         return this.roleList.get(index);
+    }
+
+    public boolean addRole(Role role) {
+        return this.roleList.add(role);
+    }
+
+    public Role removeRole(int index) {
+        if (index < 0 || index >= this.roleList.size())
+            throw new IllegalArgumentException("Role index out of bound");
+        return this.roleList.remove(index);
     }
 
     public int countRoles() {
@@ -46,7 +54,7 @@ public class User {
     @Override
     public String toString() {
         return "User{" +
-                "id=" + id +
+                "id='" + super.getId() + '\'' +
                 ", login='" + login + '\'' +
                 ", pass='" + pass + '\'' +
                 ", roleList=" + roleList +

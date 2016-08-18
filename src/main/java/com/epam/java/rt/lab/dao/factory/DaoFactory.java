@@ -22,7 +22,7 @@ public abstract class DaoFactory {
                 DaoFactory.PROPERTIES
                         .load(DaoFactory.class.getClassLoader().getResourceAsStream("dao.properties"));
             } catch (IOException exc) {
-                logger.error("File 'h2dao.properties' IO error", exc);
+                logger.error("File 'connection.properties' IO error", exc);
             }
         }
     }
@@ -35,10 +35,6 @@ public abstract class DaoFactory {
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException exc) {
             exc.printStackTrace();
         }
-        return null;
-    }
-
-    public static Connection createConnection() {
         return null;
     }
 

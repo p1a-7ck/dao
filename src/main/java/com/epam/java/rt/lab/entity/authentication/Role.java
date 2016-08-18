@@ -1,36 +1,41 @@
 package com.epam.java.rt.lab.entity.authentication;
 
-import com.epam.java.rt.lab.entity.reflection.ReflectiveBuilder;
+import com.epam.java.rt.lab.entity.BaseEntity;
 
 import java.util.List;
 
 /**
  * com.epam.java.rt.lab.dao
  */
-public class Role {
-    private final Long id;
-    private final String name;
-    private final List<Permission> permissionList;
+public class Role extends BaseEntity {
+    private String name;
+    private List<Permission> permissionList;
 
-    public Role(ReflectiveBuilder reflectiveBuilder) {
-        this.id = reflectiveBuilder.getFieldValue("id");
-        this.name = reflectiveBuilder.getFieldValue("name");
-        this.permissionList = reflectiveBuilder.getFieldValueList("permissionList");
-        reflectiveBuilder.clearFieldValueMap();
-    }
-
-    public Long getId() {
-        return id;
+    public Role() {
     }
 
     public String getName() {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public Permission getPermission(int index) {
         if (index < 0 || index >= this.permissionList.size())
             throw new IllegalArgumentException("Permission index out of bound");
         return this.permissionList.get(index);
+    }
+
+    public boolean addPermission(Permission permission) {
+        return this.permissionList.add(permission);
+    }
+
+    public Permission removePermission(int index) {
+        if (index < 0 || index >= this.permissionList.size())
+            throw new IllegalArgumentException("Permission index out of bound");
+        return this.permissionList.remove(index);
     }
 
     public int countPermissions() {
@@ -40,7 +45,7 @@ public class Role {
     @Override
     public String toString() {
         return "Role{" +
-                "id=" + id +
+                "id='" + super.getId() + '\'' +
                 ", name='" + name + '\'' +
                 ", permissionList=" + permissionList +
                 '}';

@@ -1,7 +1,8 @@
 package com.epam.java.rt.lab.dao;
 
 import com.epam.java.rt.lab.dao.factory.DaoFactory;
-import com.epam.java.rt.lab.dao.factory.H2TableFactory;
+import com.epam.java.rt.lab.dao.factory.JdbcConnectionFactory;
+import com.epam.java.rt.lab.entity.BaseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,8 +11,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
-import java.sql.*;
-import java.util.Date;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.PreparedStatement;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,12 +48,12 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
             preparedStatementMethodMap.put(Blob.class, PreparedStatement.class.getMethod("setBlob", int.class, Blob.class));
             preparedStatementMethodMap.put(Clob.class, PreparedStatement.class.getMethod("setClob", int.class, Clob.class));
         } catch (NoSuchMethodException exc) {
-            logger.error("Prepared statement methods initiating error\n{}", exc.getMessage());
+            logger.error("Prepared statement methods initiating error", exc);
         }
     }
 
-    public ReflectiveJdbcDao(Class<? extends DaoFactory> factoryClass) {
-        super(factoryClass);
+    public ReflectiveJdbcDao() {
+        super(JdbcConnectionFactory.getInstance());
     }
 
     @Override
@@ -61,16 +63,14 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
         StringBuilder wildCardStringBuilder = new StringBuilder();
         stringBuilder.append("(");
         for (Field field : entityClass.getDeclaredFields()) {
-            if (H2TableFactory.getDbType(field) != null) {
-                if (firstField) {
-                    firstField = false;
-                } else {
-                    stringBuilder.append(", ");
-                    wildCardStringBuilder.append(", ");
-                }
-                stringBuilder.append(field.getName());
-                wildCardStringBuilder.append("?");
+            if (firstField) {
+                firstField = false;
+            } else {
+                stringBuilder.append(", ");
+                wildCardStringBuilder.append(", ");
             }
+            stringBuilder.append(field.getName());
+            wildCardStringBuilder.append("?");
         }
         return stringBuilder.append(") values (").append(wildCardStringBuilder).append(")");
     }
@@ -80,22 +80,20 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
         int fieldIndex = 0;
         try {
             for (Field field : entityObject.getClass().getDeclaredFields()) {
-                if (H2TableFactory.getDbType(field) != null) {
-                    fieldIndex++;
-                    Method method = ReflectiveJdbcDao.preparedStatementMethodMap.get(field.getType());
-                    if (method == null) return false;
-                    if (field.isAccessible()) {
-                        method.invoke(preparedStatement, fieldIndex, field.get(entityObject));
-                    } else {
-                        field.setAccessible(true);
-                        method.invoke(preparedStatement, fieldIndex, field.get(entityObject));
-                        field.setAccessible(false);
-                    }
+                fieldIndex++;
+                Method method = ReflectiveJdbcDao.preparedStatementMethodMap.get(field.getType());
+                if (method == null) return false;
+                if (field.isAccessible()) {
+                    method.invoke(preparedStatement, fieldIndex, field.get(entityObject));
+                } else {
+                    field.setAccessible(true);
+                    method.invoke(preparedStatement, fieldIndex, field.get(entityObject));
+                    field.setAccessible(false);
                 }
             }
             return true;
         } catch (InvocationTargetException | IllegalAccessException exc) {
-            logger.error("Wildcards replacing with values error\n{}", exc.getMessage());
+            logger.error("Wildcards replacing with values error", exc);
         }
         return false;
     }

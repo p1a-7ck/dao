@@ -1,38 +1,37 @@
 package com.epam.java.rt.lab.entity.authentication;
 
-import com.epam.java.rt.lab.entity.reflection.ReflectiveBuilder;
+import com.epam.java.rt.lab.entity.BaseEntity;
 
 /**
  * com.epam.java.rt.lab.dao
  */
-public class Permission<T> {
-    private final Long id;
-    private final String name;
-    private final T value;
+public class Permission<T> extends BaseEntity {
+    private String name;
+    private T value;
 
-    public Permission(ReflectiveBuilder reflectiveBuilder) {
-        this.id = reflectiveBuilder.getFieldValue("id");
-        this.name = reflectiveBuilder.getFieldValue("name");
-        this.value = reflectiveBuilder.getFieldValue("value");
-        reflectiveBuilder.clearFieldValueMap();
-    }
-
-    public Long getId() {
-        return id;
+    public Permission() {
     }
 
     public String getName() {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public T getValue() {
         return value;
+    }
+
+    public void setValue(T value) {
+        this.value = value;
     }
 
     @Override
     public String toString() {
         return "Permission{" +
-                "id=" + id +
+                "id=" + super.getId() +
                 ", name='" + name + '\'' +
                 ", value=" + value +
                 '}';

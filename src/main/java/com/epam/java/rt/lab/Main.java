@@ -2,29 +2,31 @@ package com.epam.java.rt.lab;
 
 import com.epam.java.rt.lab.dao.Dao;
 import com.epam.java.rt.lab.dao.factory.DaoFactory;
-import com.epam.java.rt.lab.dao.factory.H2TableFactory;
 import com.epam.java.rt.lab.entity.authentication.User;
-import com.epam.java.rt.lab.entity.reflection.ReflectiveBuilder;
+import com.epam.java.rt.lab.service.UserService;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * com.epam.java.rt.lab.dao
  */
 public class Main {
-    public static void main(String[] args) {
-        DaoFactory factory = DaoFactory.createDaoFactory();
-        Dao reflectiveDao = factory.getReflectiveJdbcDao();
+    public static void main(String[] args) throws Exception {
 
-        reflectiveDao.createTable(User.class);
+        Callable callable = Executors.callable(new UserService());
+        for (int i = 0; i < 1000000; i ++) callable.call();
 
-        ReflectiveBuilder reflectiveBuilder = new ReflectiveBuilder();
-        reflectiveBuilder.setFieldValue("id", 5L);
-        reflectiveBuilder.setFieldValue("login", "new");
-        reflectiveBuilder.setFieldValue("pass", "new");
-        reflectiveBuilder.setFieldValue("roleList", null);
-        reflectiveDao.insert(new User(reflectiveBuilder));
 
-        reflectiveDao = null;
-        factory = null;
+
+//        DaoFactory factory = DaoFactory.createDaoFactory();
+//        Dao reflectiveDao = factory.getReflectiveJdbcDao();
+//
+//        reflectiveDao.insert(new User());
+//
+//        reflectiveDao = null;
+//        factory = null;
 
 /*
         if (factory != null) {
