@@ -80,7 +80,7 @@ public class JdbcConnectionFactoryTest {
     @Test
     public void createManyConnectionsTest() throws Exception {
         logger.info("Start many connections test");
-        int randomWaitUpperBound = 25;
+        int randomWaitUpperBound = 100;
         Callable callable = new Callable() {
             @Override
             public Object call() throws Exception {
@@ -117,11 +117,11 @@ public class JdbcConnectionFactoryTest {
             }
         };
         logger.info("Start waiting result");
-        int countThreads = 1000;
+        int countThreads = 2500;
         ExecutorService executorService = Executors.newFixedThreadPool(countThreads);
         List<Future<Connection>> futureConnectionList = new ArrayList<>();
         for (int i = 0; i < countThreads; i++) futureConnectionList.add(executorService.submit(callable));
-        long breakTime = System.currentTimeMillis() + randomWaitUpperBound * 100;
+        long breakTime = System.currentTimeMillis() + countThreads * 10;
         Connection connection;
         while (!futureConnectionList.isEmpty() && System.currentTimeMillis() < breakTime) {
             for (int i = 0; i < futureConnectionList.size(); i++) {
