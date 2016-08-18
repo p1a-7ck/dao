@@ -4,6 +4,7 @@ package com.epam.java.rt.lab.entity;
  * dao
  */
 public abstract class BaseEntity {
+    @TableColumn("? IDENTITY PRIMARY KEY")
     private Long id;
 
     public BaseEntity() {

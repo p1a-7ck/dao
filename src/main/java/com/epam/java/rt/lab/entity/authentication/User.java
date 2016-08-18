@@ -1,6 +1,8 @@
 package com.epam.java.rt.lab.entity.authentication;
 
 import com.epam.java.rt.lab.entity.BaseEntity;
+import com.epam.java.rt.lab.entity.RelationTable;
+import com.epam.java.rt.lab.entity.TableColumn;
 
 import java.util.List;
 
@@ -8,12 +10,23 @@ import java.util.List;
  * com.epam.java.rt.lab.dao
  */
 public class User extends BaseEntity {
+    @TableColumn("? VARCHAR(255)")
     private String login;
+    @TableColumn("? VARCHAR(255)")
     private String pass;
+    //@TableColumn("FOREIGN KEY(ID) REFERENCES \"Role\"(ID)")
+    @RelationTable("\"UserRole\" " +
+            "id IDENTITY PRIMARY KEY, " +
+            "FOREIGN KEY(id) REFERENCES \"User\"(id), " +
+            "FOREIGN KEY(id) REFERENCES \"Role\"(id)")
     private List<Role> roleList;
 
     public User() {
     }
+
+    public Long getId() { return super.getId(); }
+
+    public void setId(Long id) { super.setId(id); }
 
     public String getLogin() {
         return login;

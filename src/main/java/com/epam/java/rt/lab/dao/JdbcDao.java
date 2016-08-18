@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
 
 /**
  * dao
@@ -14,78 +16,79 @@ import java.sql.SQLException;
 abstract class JdbcDao implements Dao {
     private static final Logger logger = LoggerFactory.getLogger(JdbcDao.class);
     private JdbcConnectionFactory connectionFactory = null;
-    private Connection connection = null;
-    private PreparedStatement preparedStatement = null;
 
     JdbcDao(JdbcConnectionFactory connectionFactory) {
         this.connectionFactory = connectionFactory;
     }
 
-    private boolean createConnection() {
+    private PreparedStatement createPreparedStatement(Connection connection, String sqlExpression) {
         try {
-            this.connection = this.connectionFactory.getConnection();
-            return true;
-        } catch (SQLException exc) {
-            logger.error("Connection create error", exc);
-        }
-        return false;
-    }
-
-    private void closeConnection() {
-        try {
-            this.connectionFactory.releaseConnection(this.connection);
-        } catch (SQLException exc) {
-            logger.error("Connection closing error", exc);
-        }
-    }
-
-    private boolean createPreparedStatement(String sqlExpression) {
-        try {
-            this.preparedStatement = this.connection.prepareStatement(sqlExpression);
-            return true;
+            return connection.prepareStatement(sqlExpression);
         } catch (SQLException exc) {
             logger.error("Prepared statement create error\n{}", exc.getMessage());
         }
-        return false;
+        return null;
     }
 
-    private void closePreparedStatement() {
+    private void closePreparedStatement(PreparedStatement preparedStatement) {
         try {
-            this.preparedStatement.close();
+            preparedStatement.close();
         } catch (SQLException exc) {
             logger.error("Prepared statement closing error ({})", exc.getMessage());
         }
     }
 
-    abstract StringBuilder getFieldsAndValuesPartSqlExpression(Class<?> entityClass);
+    abstract List<StringBuilder> getFieldNamesPartSqlExpressionFromEntity(Class<?> entityClass);
 
-    abstract boolean setValueInsteadWildcards(PreparedStatement preparedStatement, Object entityObject);
+    abstract StringBuilder getFieldsNamesAndWildcardedValuesPartSqlExpression(Class<?> entityClass);
+
+    abstract boolean setValuesInsteadWildcards(PreparedStatement preparedStatement, Object entityObject);
 
     @Override
-    public final int insert(Object entityObject) {
-        StringBuilder sqlExpression = new StringBuilder();
-        if (!this.createConnection()) return 0;
-        sqlExpression.append("INSERT INTO \"").append(entityObject.getClass().getSimpleName()).append("\" ");
-        sqlExpression.append(this.getFieldsAndValuesPartSqlExpression(entityObject.getClass())).append(";");
-        logger.info(sqlExpression.toString());
-        if (!this.createPreparedStatement(sqlExpression.toString())) {
-            this.closeConnection();
-            return 0;
+    public final String createTableExpression(Class<?> entityClass) {
+        StringBuilder stringBuilder = new StringBuilder();
+        List<StringBuilder> stringBuilderList = getFieldNamesPartSqlExpressionFromEntity(entityClass);
+        stringBuilder.append("CREATE TABLE IF NOT EXISTS \"").append(entityClass.getSimpleName()).append("\" (");
+        stringBuilder.append(stringBuilderList.get(0)).append(");");
+        String[] relationTableList;
+        for (int i = 1; i < stringBuilderList.size(); i++) {
+            relationTableList = stringBuilderList.get(i).toString().split(" ", 2);
+            stringBuilder.append(" CREATE TABLE IF NOT EXISTS ").append(relationTableList[0]).append(" (");
+            stringBuilder.append(relationTableList[1]).append(");");
         }
-        if (!this.setValueInsteadWildcards(this.preparedStatement, entityObject))
+        return stringBuilder.toString();
+    }
+
+    @Override
+    public boolean execute(Connection connection, String sqlExpression) {
+        try {
+            Statement statement = connection.createStatement();
+            return statement.execute(sqlExpression);
+        } catch (SQLException exc) {
+            logger.error("Statement execution error ({})", sqlExpression, exc);
+        }
+        return false;
+    }
+
+    @Override
+    public final int insert(Connection connection, Object entityObject) {
+        StringBuilder sqlExpression = new StringBuilder();
+        sqlExpression.append("INSERT INTO \"").append(entityObject.getClass().getSimpleName()).append("\" (");
+        sqlExpression.append(this.getFieldsNamesAndWildcardedValuesPartSqlExpression(entityObject.getClass())).append(");");
+        PreparedStatement preparedStatement = this.createPreparedStatement(connection, sqlExpression.toString());
+        if (preparedStatement == null) return 0;
+        if (!this.setValuesInsteadWildcards(preparedStatement, entityObject))
             logger.error("Setting values to prepared statement error");
         try {
-            int result = this.preparedStatement.executeUpdate();
+            int result = preparedStatement.executeUpdate();
             if (result > 0) logger.info("Entity '{}' inserted successfully", entityObject);
             else logger.info("Entity '{}' not inserted", entityObject);
             return result;
         } catch (SQLException exc) {
-            logger.error("Prepared statement execution error\n{}", exc.getMessage());
+            logger.error("Prepared statement execution error", exc);
         } finally {
-            this.closePreparedStatement();
-            this.closeConnection();
+            this.closePreparedStatement(preparedStatement);
         }
         return 0;
     }
-
 }
