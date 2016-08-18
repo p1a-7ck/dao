@@ -7,9 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.Time;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Timer;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -21,8 +24,8 @@ import static org.junit.Assert.*;
  */
 public class JdbcConnectionFactoryTest {
     private static Logger logger = LoggerFactory.getLogger(JdbcConnectionFactoryTest.class);
-    private static Lock counterLock = new ReentrantLock();
-    private volatile int countThread = 0;
+    private static Lock threadListLock = new ReentrantLock();
+    private static List<Thread> threadList = new ArrayList<>();
     private DaoFactory factory = null;
 
     @Before
@@ -77,50 +80,81 @@ public class JdbcConnectionFactoryTest {
     @Test
     public void createManyConnectionsTest() throws Exception {
         logger.info("Start many connections test");
-        int randomWaitUpperBound = 50;
+        int randomWaitUpperBound = 25;
         Callable callable = new Callable() {
             @Override
             public Object call() throws Exception {
-                int indexThread = 0;
-                if (JdbcConnectionFactoryTest.counterLock.tryLock()) {
-                    countThread = countThread + 1;
-                    indexThread = countThread;
-                    JdbcConnectionFactoryTest.counterLock.unlock();
-                }
-                logger.info("Calling method in thread " + indexThread);
+                int indexThread = -1;
                 Connection connection = null;
-                while (connection == null) {
-                    connection = JdbcConnectionFactory.getInstance().getConnection();
-                    if (connection == null) {
-                        Thread.sleep((new Random()).nextInt(randomWaitUpperBound));
+                try {
+                    logger.info("Trying to add thread to thread list");
+                    while (indexThread == -1) {
+                        if (JdbcConnectionFactoryTest.threadListLock.tryLock(10, TimeUnit.MILLISECONDS)) {
+                            JdbcConnectionFactoryTest.threadList.add(Thread.currentThread());
+                            indexThread = JdbcConnectionFactoryTest.threadList.size();
+                            JdbcConnectionFactoryTest.threadListLock.unlock();
+                        }
                     }
+                    logger.info("Trying to get connection in thread " + indexThread);
+                    while (connection == null) {
+                        connection = JdbcConnectionFactory.getInstance().getConnection();
+                        if (connection == null) {
+                            Thread.sleep((new Random()).nextInt(randomWaitUpperBound));
+                        }
+                    }
+                    logger.info("Working in thread " + indexThread);
+                    Thread.sleep((new Random()).nextInt(randomWaitUpperBound));
+                    logger.info("Work done in thread " + indexThread);
+                    JdbcConnectionFactory.getInstance().releaseConnection(connection);
+                    return connection;
+                } catch (InterruptedException exc) {
+                    logger.info("Thread {} got InteruptExeception", indexThread);
+                    return connection;
+                } finally {
+                    JdbcConnectionFactoryTest.threadList.remove(Thread.currentThread());
+                    if (connection != null) connection.close();
                 }
-                logger.info("Working in thread " + indexThread);
-                Thread.sleep((new Random()).nextInt(randomWaitUpperBound));
-                logger.info("Work done in thread " + indexThread);
-                JdbcConnectionFactory.getInstance().releaseConnection(connection);
-                return connection;
             }
         };
         logger.info("Start waiting result");
-        int countThreads = 50;
+        int countThreads = 1000;
         ExecutorService executorService = Executors.newFixedThreadPool(countThreads);
         List<Future<Connection>> futureConnectionList = new ArrayList<>();
         for (int i = 0; i < countThreads; i++) futureConnectionList.add(executorService.submit(callable));
+        long breakTime = System.currentTimeMillis() + randomWaitUpperBound * 100;
         Connection connection;
-        while (!futureConnectionList.isEmpty()) {
+        while (!futureConnectionList.isEmpty() && System.currentTimeMillis() < breakTime) {
             for (int i = 0; i < futureConnectionList.size(); i++) {
                 connection = null;
                 try {
-                    connection = futureConnectionList.get(i).get(randomWaitUpperBound, TimeUnit.MILLISECONDS);
+                    connection = futureConnectionList.get(i).get(1, TimeUnit.MILLISECONDS);
                     if (connection != null) {
                         futureConnectionList.remove(i);
                         logger.info("(left {} connections)", futureConnectionList.size());
                         break;
                     }
                 } catch (TimeoutException exc) {
-
+                    //
                 }
+            }
+        }
+        if (!futureConnectionList.isEmpty()) {
+            logger.info("Interupt alive threads");
+            Thread thread;
+            for (int i = 0; i < JdbcConnectionFactoryTest.threadList.size(); i++) {
+                thread = JdbcConnectionFactoryTest.threadList.get(i);
+                if (thread.isAlive()) {
+                    logger.info("Interupt thread with index {}", i);
+                    thread.interrupt();
+                }
+            }
+            logger.info("Wait while threads interupting");
+            boolean isSomeNotTerminated = true;
+            while (isSomeNotTerminated) {
+                isSomeNotTerminated = false;
+                for (int i = 0; i < JdbcConnectionFactoryTest.threadList.size(); i++)
+                    if (JdbcConnectionFactoryTest.threadList.get(i).getState() == Thread.State.TERMINATED)
+                        isSomeNotTerminated = true;
             }
         }
         logger.info("Many connections test complete");
