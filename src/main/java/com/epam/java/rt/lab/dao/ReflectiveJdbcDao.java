@@ -12,13 +12,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.PreparedStatement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.sql.*;
+import java.util.*;
+
+import static javafx.scene.input.KeyCode.T;
 
 /**
  * com.epam.java.rt.lab.dao
@@ -56,8 +53,7 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
         }
     }
 
-    public ReflectiveJdbcDao() throws IOException {
-        super(ConnectionPool.getInstance());
+    public ReflectiveJdbcDao() {
     }
 
     @Override
@@ -65,9 +61,7 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
         int fieldIndex = 0;
         List<StringBuilder> stringBuilderList = new ArrayList<>();
         stringBuilderList.add(new StringBuilder());
-        List<Class<?>> classList = new ArrayList<>();
-        classList.add(entityClass);
-        getParentClass(classList);
+        List<Class<?>> classList = getClassList(entityClass);
         StringBuilder stringBuilder = new StringBuilder();
         for (int i = classList.size() - 1; i >= 0; i--) {
             for (Field field : classList.get(i).getDeclaredFields()) {
@@ -80,6 +74,9 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
                     RelationTable relationTable = field.getAnnotation(RelationTable.class);
                     if (relationTable != null)
                         stringBuilderList.add(new StringBuilder(relationTable.value()));
+                    // TODO: make relationTable as object
+                    // TODO: check for existence of relation and exclude other relation
+                    // TODO: update relation table
                 }
             }
         }
@@ -102,15 +99,15 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
         StringBuilder stringBuilder = new StringBuilder();
         String[] fieldArray = getFieldNamesPartSqlExpressionFromEntity(entityClass).get(0).toString().split(", ");
         for (String field : fieldArray) {
-            if (fieldIndex > 0) stringBuilder.append(", ");
-            fieldIndex = fieldIndex + 1;
-            stringBuilder.append(field.split(" ", 2)[0]);
+            if (!field.contains("PRIMARY KEY")) {
+                if (fieldIndex > 0) stringBuilder.append(", ");
+                fieldIndex = fieldIndex + 1;
+                stringBuilder.append(field.split(" ", 2)[0]);
+            }
         }
         stringBuilder.append(") VALUES (");
-        fieldIndex = 0;
-        for (String field : fieldArray) {
-            if (fieldIndex > 0) stringBuilder.append(", ");
-            fieldIndex = fieldIndex + 1;
+        for (int i = 0; i < fieldIndex; i++) {
+            if (i > 0) stringBuilder.append(", ");
             stringBuilder.append("?");
         }
         return stringBuilder;
@@ -119,31 +116,142 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
     @Override
     boolean setValuesInsteadWildcards(PreparedStatement preparedStatement, Object entityObject) {
         int fieldIndex = 0;
-        List<Class<?>> classList = new ArrayList<>();
-        classList.add(entityObject.getClass());
-        getParentClass(classList);
+        List<Class<?>> classList = getClassList(entityObject.getClass());
         try {
             for (int i = classList.size() - 1; i >= 0; i--) {
                 for (Field field : classList.get(i).getDeclaredFields()) {
                     TableColumn tableColumn = field.getAnnotation(TableColumn.class);
                     if (tableColumn != null) {
-                        fieldIndex = fieldIndex + 1;
-                        Method method = ReflectiveJdbcDao.preparedStatementMethodMap.get(field.getType());
-                        if (method == null) return false;
-                        if (field.isAccessible()) {
-                            method.invoke(preparedStatement, fieldIndex, field.get(entityObject));
-                        } else {
-                            field.setAccessible(true);
-                            method.invoke(preparedStatement, fieldIndex, field.get(entityObject));
-                            field.setAccessible(false);
+                        if (!tableColumn.value().contains("PRIMARY KEY")) {
+                            fieldIndex = fieldIndex + 1;
+                            setFieldValue(preparedStatement, fieldIndex, classList.get(i).cast(entityObject), field, tableColumn.value());
                         }
                     }
                 }
             }
             return true;
-        } catch (InvocationTargetException | IllegalAccessException exc) {
-            logger.error("Wildcards replacing with values error", exc);
+        } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
+            logger.error("Wildcards replacing with values error", e);
         }
         return false;
     }
+
+    private <T> void setFieldValue(PreparedStatement preparedStatement, int fieldIndex,
+                               Object entityObject, Field field, String tableColumnValue)
+            throws IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+        if (getValue(entityObject, field) == null) {
+            //
+        } else {
+            if (!tableColumnValue.contains("REFERENCES")) {
+                Method method = ReflectiveJdbcDao.preparedStatementMethodMap.get(field.getType());
+                if (method == null) throw new IllegalAccessException();
+                method.invoke(preparedStatement, fieldIndex, getValue(entityObject, field));
+            } else {
+                T primaryKeyValue = getPrimaryKeyValue(getValue(entityObject, field));
+                Method method = ReflectiveJdbcDao.preparedStatementMethodMap.get(primaryKeyValue.getClass());
+                if (method == null) throw new IllegalAccessException();
+                method.invoke(preparedStatement, fieldIndex, primaryKeyValue);
+            }
+        }
+    }
+
+    private <T> T getPrimaryKeyValue(Object entityObject)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        List<Class<?>> classList = getClassList(entityObject.getClass());
+        for (int i = classList.size() - 1; i >= 0; i--) {
+            for (Field field : classList.get(i).getDeclaredFields()) {
+                TableColumn tableColumn = field.getAnnotation(TableColumn.class);
+                if (tableColumn != null) {
+                    if (tableColumn.value().contains("PRIMARY KEY")) {
+                        return getValue(classList.get(i).cast(entityObject), field);
+                    }
+                }
+            }
+        }
+        throw new NoSuchElementException();
+    }
+
+    private void setValue(Object entityObject, Field field, Object entityValue) throws IllegalAccessException {
+        if (field.isAccessible()) {
+            field.set(entityObject, entityValue);
+        } else {
+            field.setAccessible(true);
+            field.set(entityObject, entityValue);
+            field.setAccessible(false);
+        }
+    }
+
+    private <T> T getValue(Object entityObject, Field field) throws IllegalAccessException {
+        T result;
+        if (field.isAccessible()) {
+            result = (T) field.get(entityObject);
+        } else {
+            field.setAccessible(true);
+            result = (T) field.get(entityObject);
+            field.setAccessible(false);
+        }
+        return result;
+    }
+
+    @Override
+    void setEntityObjectGeneratedKeys(PreparedStatement preparedStatement, Object entityObject)
+            throws NoSuchMethodException, SQLException, InvocationTargetException, IllegalAccessException {
+        List<Class<?>> classList = getClassList(entityObject.getClass());
+        Method method;
+        ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
+        int fieldIndex = 0;
+        if (generatedKeys.next()) {
+            for (int i = classList.size() - 1; i >= 0; i--) {
+                for (Field field : classList.get(i).getDeclaredFields()) {
+                    TableColumn tableColumn = field.getAnnotation(TableColumn.class);
+                    if (tableColumn != null) {
+                        if (tableColumn.value().contains("PRIMARY KEY")) {
+                            fieldIndex = fieldIndex + 1;
+                            setValue(classList.get(i).cast(entityObject), field, generatedKeys.getLong(fieldIndex));
+                        }
+                    } else {
+                        RelationTable relationTable = field.getAnnotation(RelationTable.class);
+                        if (relationTable != null) {
+                            //
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private List<Class<?>> getClassList(Class<?> entityClass) {
+        List<Class<?>> classList = new ArrayList<>();
+        classList.add(entityClass);
+        getParentClass(classList);
+        return classList;
+    }
+
+    @Override
+    <T> void insertRelations(Connection connection, Object entityObject)
+            throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+        List<Class<?>> classList = getClassList(entityObject.getClass());
+        T value;
+        T key;
+        StringBuilder sqlExpression = new StringBuilder();
+        for (int i = classList.size() - 1; i >= 0; i--) {
+            for (Field field : classList.get(i).getDeclaredFields()) {
+                RelationTable relationTable = field.getAnnotation(RelationTable.class);
+                if (relationTable != null) {
+                    value = getValue(entityObject, field);
+                    System.out.println(value.getClass().getSimpleName());
+                    if (value.getClass().getSimpleName().contains("List")) {
+                        for (int j = 0; j < ((List) value).size(); j++) {
+                            key = getPrimaryKeyValue(((List) value).get(j));
+                            sqlExpression.append("SELECT * FROM ");
+
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 }
+

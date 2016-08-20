@@ -4,6 +4,7 @@ import com.epam.java.rt.lab.entity.BaseEntity;
 import com.epam.java.rt.lab.entity.RelationTable;
 import com.epam.java.rt.lab.entity.TableColumn;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -17,11 +18,12 @@ public class User extends BaseEntity {
     //@TableColumn("FOREIGN KEY(ID) REFERENCES \"Role\"(ID)")
     @RelationTable("\"UserRole\" " +
             "id IDENTITY PRIMARY KEY, " +
-            "FOREIGN KEY(id) REFERENCES \"User\"(id), " +
-            "FOREIGN KEY(id) REFERENCES \"Role\"(id)")
+            "userId BIGINT REFERENCES \"User\", " +
+            "roleId BIGINT REFERENCES \"Role\"")
     private List<Role> roleList;
 
     public User() {
+        this.roleList = new ArrayList<>();
     }
 
     public Long getId() { return super.getId(); }

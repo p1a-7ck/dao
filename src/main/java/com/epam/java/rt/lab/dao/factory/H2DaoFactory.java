@@ -20,12 +20,7 @@ public class H2DaoFactory extends DaoFactory {
 
     @Override
     public ReflectiveJdbcDao getReflectiveJdbcDao() {
-        try {
-            return new ReflectiveJdbcDao();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return new ReflectiveJdbcDao();
     }
 
 }
