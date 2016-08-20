@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -12,8 +13,6 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -58,23 +57,27 @@ public class ConnectionPoolTest {
         int countThreads = 100;
         long testDurationMinutes = 1;
         List<Future<ResultObject>> results = new ArrayList<>();
-        ResultObject.randomIterationUpperBound = 10;
-        ResultObject.randomSleepUpperBound = 10;
+        ResultObject.randomIterationUpperBound = 500;
+        ResultObject.randomSleepUpperBound = 500;
 
         Callable<ResultObject> task = new Callable<ResultObject>() {
             @Override
             public ResultObject call() throws Exception {
+                Random rn = new Random();
                 ResultObject result = new ResultObject();
-                int index = ResultObject.countThreads.getAndIncrement();
                 while (!ResultObject.returnResult.get()) {
-                    Connection connection = ConnectionPool.getInstance().getConnection();
-                    for (int j = 0; j < ResultObject.randomIterationUpperBound; j++) {
-                        Thread.sleep(ResultObject.randomSleepUpperBound);
+                    Thread.sleep(rn.nextInt(ResultObject.randomSleepUpperBound));
+                    try {
+                        Connection connection = ConnectionPool.getInstance().getConnection();
+                        for (int j = 0; j < rn.nextInt(ResultObject.randomIterationUpperBound); j++) {
+                            Thread.sleep(rn.nextInt(ResultObject.randomSleepUpperBound));
+                        }
+                        connection.close();
+                        result.countConnections++;
+                    } catch (SQLException e) {
+                        result.countNoConnection++;
                     }
-                    connection.close();
-                    result.countConnections++;
                 }
-                System.out.println("return " + index + " (left " + ResultObject.countThreads.decrementAndGet() + ")");
                 return result;
             }
         };
@@ -88,7 +91,6 @@ public class ConnectionPoolTest {
         }
 
         ResultObject.returnResult.set(true);
-        System.out.println("\n\n");
 
         ResultObject finalResult;
         List<ResultObject> finalResults = new ArrayList<>();
@@ -101,15 +103,16 @@ public class ConnectionPoolTest {
                     break;
                 } catch (Exception e) {
                     finalResult = null;
-//                    System.out.println(results.size());
                 }
             }
         }
         int countConnectionsAll = 0;
+        int countNoConnectionsAll = 0;
         for (ResultObject result : finalResults) {
             countConnectionsAll = countConnectionsAll + result.countConnections;
-            System.out.println("countConnections = " + result.countConnections);
+            countNoConnectionsAll = countNoConnectionsAll + result.countNoConnection;
         }
+        System.out.println("Granted connections = " + countConnectionsAll + " / " + (countNoConnectionsAll + countConnectionsAll));
         assertEquals("Number of connections not equal", countConnectionsAll, ConnectionPool.getInstance().countConnections.get());
     }
 
@@ -124,6 +127,6 @@ public class ConnectionPoolTest {
         static int randomIterationUpperBound;
         static int randomSleepUpperBound;
         int countConnections = 0;
-        int countInterruptException = 0;
+        int countNoConnection = 0;
     }
 }
