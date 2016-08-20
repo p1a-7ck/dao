@@ -4,6 +4,7 @@ import com.epam.java.rt.lab.dao.ReflectiveJdbcDao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -19,7 +20,12 @@ public class H2DaoFactory extends DaoFactory {
 
     @Override
     public ReflectiveJdbcDao getReflectiveJdbcDao() {
-        return new ReflectiveJdbcDao();
+        try {
+            return new ReflectiveJdbcDao();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
 }

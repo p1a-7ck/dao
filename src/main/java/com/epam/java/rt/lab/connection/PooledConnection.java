@@ -3,6 +3,7 @@ package com.epam.java.rt.lab.connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.sql.*;
 import java.util.Map;
 import java.util.Properties;
@@ -97,10 +98,10 @@ public class PooledConnection implements Connection {
             boolean done = false;
             while (!done) {
                 try {
-                    ConnectionPool.releaseConnection(this);
+                    ConnectionPool.getInstance().releaseConnection(this);
                     done = true;
                     logger.info("Pooled connection released");
-                } catch (InterruptedException e) {
+                } catch (InterruptedException | IOException e) {
                     done = false;
                     logger.error("Pooled connection release error", e);
                 }

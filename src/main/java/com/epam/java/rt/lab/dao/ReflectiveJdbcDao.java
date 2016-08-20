@@ -1,21 +1,24 @@
 package com.epam.java.rt.lab.dao;
 
-import com.epam.java.rt.lab.dao.factory.DaoFactory;
-import com.epam.java.rt.lab.dao.factory.JdbcConnectionFactory;
-import com.epam.java.rt.lab.entity.BaseEntity;
+import com.epam.java.rt.lab.connection.ConnectionPool;
 import com.epam.java.rt.lab.entity.RelationTable;
 import com.epam.java.rt.lab.entity.TableColumn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.reflect.Reflection;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
-import java.sql.*;
-import java.util.*;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.PreparedStatement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * com.epam.java.rt.lab.dao
@@ -53,8 +56,8 @@ public class ReflectiveJdbcDao extends JdbcDao implements Dao {
         }
     }
 
-    public ReflectiveJdbcDao() {
-        super(JdbcConnectionFactory.getInstance());
+    public ReflectiveJdbcDao() throws IOException {
+        super(ConnectionPool.getInstance());
     }
 
     @Override

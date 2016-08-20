@@ -1,7 +1,7 @@
 package com.epam.java.rt.lab.dao;
 
+import com.epam.java.rt.lab.connection.ConnectionPool;
 import com.epam.java.rt.lab.dao.factory.DaoFactory;
-import com.epam.java.rt.lab.dao.factory.JdbcConnectionFactory;
 import com.epam.java.rt.lab.entity.authentication.Permission;
 import com.epam.java.rt.lab.entity.authentication.Role;
 import com.epam.java.rt.lab.entity.authentication.User;
@@ -34,7 +34,7 @@ public class DaoTest {
 
     @Test
     public void createTest() throws Exception {
-        Connection connection = JdbcConnectionFactory.getInstance().getConnection();
+        Connection connection = ConnectionPool.getInstance().getConnection();
         String sqlExpression = dao.createTableExpression(Permission.class);
         dao.execute(connection, sqlExpression);
         assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"Permission\""));
@@ -48,7 +48,7 @@ public class DaoTest {
 
     @Test
     public void insertTest() throws Exception {
-        Connection connection = JdbcConnectionFactory.getInstance().getConnection();
+        Connection connection = ConnectionPool.getInstance().getConnection();
         User user = new User();
         user.setId(1L);
         user.setLogin("login one");

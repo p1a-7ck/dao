@@ -1,6 +1,6 @@
 package com.epam.java.rt.lab.dao;
 
-import com.epam.java.rt.lab.dao.factory.JdbcConnectionFactory;
+import com.epam.java.rt.lab.connection.ConnectionPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,10 +15,10 @@ import java.util.List;
  */
 abstract class JdbcDao implements Dao {
     private static final Logger logger = LoggerFactory.getLogger(JdbcDao.class);
-    private JdbcConnectionFactory connectionFactory = null;
+    private ConnectionPool connectionPool = null;
 
-    JdbcDao(JdbcConnectionFactory connectionFactory) {
-        this.connectionFactory = connectionFactory;
+    JdbcDao(ConnectionPool connectionPool) {
+        this.connectionPool = connectionPool;
     }
 
     private PreparedStatement createPreparedStatement(Connection connection, String sqlExpression) {
