@@ -108,7 +108,7 @@ public class JdbcConnectionFactoryTest {
                     JdbcConnectionFactory.getInstance().releaseConnection(connection);
                     return connection;
                 } catch (InterruptedException exc) {
-                    logger.info("Thread {} got InteruptExeception", indexThread);
+                    logger.info("Thread {} got InterruptException", indexThread);
                     return connection;
                 } finally {
                     JdbcConnectionFactoryTest.threadList.remove(Thread.currentThread());
