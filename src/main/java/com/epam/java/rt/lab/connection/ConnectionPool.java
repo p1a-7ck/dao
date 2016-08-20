@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Date;
+import java.util.NoSuchElementException;
 import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -30,8 +31,8 @@ public class ConnectionPool implements DataSource {
     private static final Lock propertiesLock = new ReentrantLock();
     private static Queue<PooledConnection> grantedConnectionQueue;
     private static Queue<PooledConnection> availableConnectionQueue;
-    private static final Lock connectionQueueLock = new ReentrantLock();
-    public static int countConnections = 0;
+    private static final Lock connectionQueueLock = new ReentrantLock(true);
+    public static AtomicInteger countConnections = new AtomicInteger(0);
 
     private ConnectionPool() {
         try {
@@ -50,20 +51,21 @@ public class ConnectionPool implements DataSource {
         return instance;
     }
 
-    public static void reloadProperties(InputStream inputStream) throws IOException, InterruptedException, SQLException {
+    public void reloadProperties(InputStream inputStream) throws IOException, InterruptedException, SQLException {
         try {
-            if (propertiesLock.tryLock(100, TimeUnit.MILLISECONDS)) {
+            if (ConnectionPool.propertiesLock.tryLock(100, TimeUnit.MILLISECONDS)) {
                 ConnectionPool.PROPERTIES.load(inputStream);
                 initializePool();
-                ConnectionPool.propertiesLock.unlock();
             }
         } catch (IOException | InterruptedException | SQLException e) {
             logger.error("Reload properties error", e);
             throw e;
+        } finally {
+            ConnectionPool.propertiesLock.unlock();
         }
     }
 
-    private static void initializePool() throws NumberFormatException, InterruptedException, SQLException {
+    private void initializePool() throws NumberFormatException, InterruptedException, SQLException {
         try {
             logger.info("Connection pool initialize start");
             ConnectionPool.grantedConnectionQueue = new ArrayBlockingQueue<>
@@ -85,28 +87,29 @@ public class ConnectionPool implements DataSource {
     private PooledConnection grantPooledConnection(PooledConnection pooledConnection) throws SQLException {
         if (pooledConnection == null) pooledConnection = new PooledConnection(ConnectionPool.PROPERTIES);
         ConnectionPool.grantedConnectionQueue.offer(pooledConnection);
-        ConnectionPool.countConnections++;
+        ConnectionPool.countConnections.getAndIncrement();
         logger.info("Cleared connection granted (total granted: {})", ConnectionPool.grantedConnectionQueue.size());
         return pooledConnection;
     }
 
     @Override
     public Connection getConnection() throws SQLException {
-        PooledConnection pooledConnection = null;
-        pooledConnection = ConnectionPool.availableConnectionQueue.poll();
-        if (pooledConnection != null) return grantPooledConnection(pooledConnection);
         try {
-            if (ConnectionPool.connectionQueueLock.tryLock(10, TimeUnit.MILLISECONDS)) {
-                if (ConnectionPool.availableConnectionQueue.size() + ConnectionPool.grantedConnectionQueue.size() <
-                        Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.max.opened"))) {
-                    pooledConnection = grantPooledConnection(new PooledConnection(ConnectionPool.PROPERTIES));
-                    ConnectionPool.connectionQueueLock.unlock();
-                    return pooledConnection;
+            return grantPooledConnection(ConnectionPool.availableConnectionQueue.remove());
+        } catch (NoSuchElementException e) {
+            try {
+                if (ConnectionPool.connectionQueueLock.tryLock(10, TimeUnit.MILLISECONDS)) {
+                    if (ConnectionPool.availableConnectionQueue.size() + ConnectionPool.grantedConnectionQueue.size() <
+                            Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.max.opened"))) {
+                        return grantPooledConnection(null);
+                    }
                 }
+            } catch (InterruptedException eTimeout) {
+                logger.error("Available connection not found", eTimeout);
+                throw new SQLException(eTimeout.getMessage());
+            } finally {
+                ConnectionPool.connectionQueueLock.unlock();
             }
-        } catch (InterruptedException e) {
-            logger.error("Upper bound limit reached", e);
-            throw new SQLException(e.getMessage());
         }
         throw new SQLException("Available connection not found");
     }

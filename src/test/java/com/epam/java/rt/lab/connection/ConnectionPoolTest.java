@@ -41,7 +41,7 @@ public class ConnectionPoolTest {
 
     @Test
     public void reloadPropertiesTest() throws Exception {
-        ConnectionPool.reloadProperties
+        ConnectionPool.getInstance().reloadProperties
                 (ConnectionPool.class.getClassLoader().getResourceAsStream("connection.properties"));
         assertNotNull(ConnectionPool.getInstance());
     }
@@ -58,23 +58,18 @@ public class ConnectionPoolTest {
         int countThreads = 100;
         long testDurationMinutes = 1;
         List<Future<ResultObject>> results = new ArrayList<>();
-        ResultObject.randomIterationUpperBound = 100;
-        ResultObject.randomSleepUpperBound = 100;
+        ResultObject.randomIterationUpperBound = 10;
+        ResultObject.randomSleepUpperBound = 1000;
 
-        ResultObject.returnResult.set(false);
-        ResultObject.countThreads.set(0);
-        ExecutorService executorService = Executors.newFixedThreadPool(countThreads);
-        for (int i = 0; i < countThreads; i++) {
-            results.add(executorService.submit(() -> {
+        Callable<ResultObject> task = new Callable<ResultObject>() {
+            @Override
+            public ResultObject call() throws Exception {
                 ResultObject result = new ResultObject();
-//                Random rn = new Random();
-                ResultObject.countThreads.getAndIncrement();
+                int index = ResultObject.countThreads.getAndIncrement();
                 while (!ResultObject.returnResult.get()) {
-//                    Thread.sleep(rn.nextInt(ResultObject.randomSleepUpperBound));
-                    Thread.sleep(ResultObject.randomSleepUpperBound);
                     Connection connection = ConnectionPool.getInstance().getConnection();
+                    System.out.println("Thread(" + index + ")");
                     for (int j = 0; j < ResultObject.randomIterationUpperBound; j++) {
-//                        Thread.sleep(rn.nextInt(ResultObject.randomSleepUpperBound));
                         Thread.sleep(ResultObject.randomSleepUpperBound);
                     }
                     connection.close();
@@ -82,27 +77,29 @@ public class ConnectionPoolTest {
                 }
                 System.out.println("return (" + ResultObject.countThreads.decrementAndGet() + ")");
                 return result;
-            }));
-        }
+            }
+        };
+
+        ExecutorService executorService = Executors.newFixedThreadPool(countThreads);
+        for (int i = 0; i < countThreads; i++) results.add(executorService.submit(task));
+
         long currentTime = new Date().getTime();
         while (TimeUnit.MILLISECONDS.toMinutes(new Date().getTime() - currentTime) < testDurationMinutes) {
             Thread.sleep(1000);
         }
+
         ResultObject.returnResult.set(true);
-        Thread.sleep(1000);
         System.out.println("\n\n");
+
         ResultObject finalResult;
         List<ResultObject> finalResults = new ArrayList<>();
         while (finalResults.size() < countThreads) {
-            Thread.sleep(1000);
-            for (Future future : results) {
+            for (int i = 0; i < results.size(); i++) {
                 try {
-                    finalResult = (ResultObject) future.get(10, TimeUnit.MILLISECONDS);
-                    if (finalResult != null) {
-                        finalResults.add(finalResult);
-                        results.remove(future);
-                        break;
-                    }
+                    finalResult = (ResultObject) results.get(i).get(10, TimeUnit.MILLISECONDS);
+                    if (finalResult != null) finalResults.add(finalResult);
+                    results.remove(i);
+                    break;
                 } catch (Exception e) {
 //                    System.out.println(results.size());
                 }
@@ -122,8 +119,8 @@ public class ConnectionPoolTest {
     }
 
     private static class ResultObject {
-        static AtomicInteger countThreads = new AtomicInteger();
-        static AtomicBoolean returnResult = new AtomicBoolean();
+        static AtomicInteger countThreads = new AtomicInteger(0);
+        static AtomicBoolean returnResult = new AtomicBoolean(false);
         static int randomIterationUpperBound;
         static int randomSleepUpperBound;
         int countConnections = 0;
