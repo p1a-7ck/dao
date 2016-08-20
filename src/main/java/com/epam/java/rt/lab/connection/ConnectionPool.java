@@ -94,19 +94,19 @@ public class ConnectionPool implements DataSource {
         try {
             return grantPooledConnection(this.availableConnectionQueue.remove());
         } catch (NoSuchElementException e) {
-            try {
-                if (this.connectionQueueLock.tryLock(10, TimeUnit.MILLISECONDS)) {
+//            try {
+//                if (this.connectionQueueLock.tryLock(10, TimeUnit.MILLISECONDS)) {
                     if (this.availableConnectionQueue.size() + this.grantedConnectionQueue.size() <
                             Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.max.opened"))) {
                         return grantPooledConnection(null);
                     }
-                }
-            } catch (InterruptedException eTimeout) {
-                logger.error("Available connection not found", eTimeout);
-                throw new SQLException(eTimeout.getMessage());
-            } finally {
+//                }
+//            } catch (InterruptedException eTimeout) {
+//                logger.error("Available connection not found", eTimeout);
+//                throw new SQLException(eTimeout.getMessage());
+//            } finally {
                 this.connectionQueueLock.unlock();
-            }
+//            }
         }
         throw new SQLException("Available connection not found");
     }

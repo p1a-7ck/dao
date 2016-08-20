@@ -59,7 +59,7 @@ public class ConnectionPoolTest {
         long testDurationMinutes = 1;
         List<Future<ResultObject>> results = new ArrayList<>();
         ResultObject.randomIterationUpperBound = 10;
-        ResultObject.randomSleepUpperBound = 1000;
+        ResultObject.randomSleepUpperBound = 10;
 
         Callable<ResultObject> task = new Callable<ResultObject>() {
             @Override
@@ -68,14 +68,13 @@ public class ConnectionPoolTest {
                 int index = ResultObject.countThreads.getAndIncrement();
                 while (!ResultObject.returnResult.get()) {
                     Connection connection = ConnectionPool.getInstance().getConnection();
-                    System.out.println("Thread(" + index + ")");
                     for (int j = 0; j < ResultObject.randomIterationUpperBound; j++) {
                         Thread.sleep(ResultObject.randomSleepUpperBound);
                     }
                     connection.close();
                     result.countConnections++;
                 }
-                System.out.println("return (" + ResultObject.countThreads.decrementAndGet() + ")");
+                System.out.println("return " + index + " (left " + ResultObject.countThreads.decrementAndGet() + ")");
                 return result;
             }
         };
@@ -101,6 +100,7 @@ public class ConnectionPoolTest {
                     results.remove(i);
                     break;
                 } catch (Exception e) {
+                    finalResult = null;
 //                    System.out.println(results.size());
                 }
             }
@@ -110,7 +110,7 @@ public class ConnectionPoolTest {
             countConnectionsAll = countConnectionsAll + result.countConnections;
             System.out.println("countConnections = " + result.countConnections);
         }
-        //assertEquals("Number of connections not equal", countConnectionsAll, ConnectionPool.countConnections);
+        assertEquals("Number of connections not equal", countConnectionsAll, ConnectionPool.getInstance().countConnections.get());
     }
 
     @Test
