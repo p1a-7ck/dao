@@ -19,7 +19,8 @@ public class H2DaoFactory extends DaoFactory {
     }
 
     @Override
-    public ReflectiveJdbcDao getReflectiveJdbcDao() {
+    public ReflectiveJdbcDao getReflectiveJdbcDao()
+            throws IOException, NoSuchMethodException, ClassNotFoundException {
         return new ReflectiveJdbcDao();
     }
 

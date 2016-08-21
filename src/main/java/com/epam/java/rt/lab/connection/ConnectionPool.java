@@ -10,9 +10,11 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.NoSuchElementException;
 import java.util.Properties;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -28,6 +30,7 @@ public class ConnectionPool implements DataSource {
     private BlockingQueue<PooledConnection> availableConnectionQueue;
     private final Lock connectionQueueLock = new ReentrantLock(true);
     private AtomicInteger lastAvailableQueueSize = new AtomicInteger(0);
+    private AtomicBoolean shutdownPool = new AtomicBoolean(false);
     public AtomicInteger countConnections = new AtomicInteger(0);
 
     private ConnectionPool() {
@@ -80,41 +83,26 @@ public class ConnectionPool implements DataSource {
         }
     }
 
-    private PooledConnection grantPooledConnection(PooledConnection pooledConnection) throws SQLException {
-        try {
-            if (pooledConnection == null) pooledConnection = new PooledConnection(ConnectionPool.PROPERTIES);
-            this.grantedConnectionQueue.offer(pooledConnection);
-            this.countConnections.getAndIncrement();
-            logger.info("Cleared connection granted (total granted: {})", this.grantedConnectionQueue.size());
-            return pooledConnection;
-        } catch (SQLException e) {
-            pooledConnection.setShutdownProcess(true);
-            pooledConnection.close();
-            logger.error("Grant pooled connection error", e);
-            throw e;
-        }
-    }
-
     @Override
     public Connection getConnection() throws SQLException {
         try {
-            return grantPooledConnection(this.availableConnectionQueue.remove());
-        } catch (NoSuchElementException e) {
-//            try {
-//                if (this.connectionQueueLock.tryLock(10, TimeUnit.MILLISECONDS)) {
-                    if (this.availableConnectionQueue.size() + this.grantedConnectionQueue.size() <
-                            Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.max.opened"))) {
-                        return grantPooledConnection(null);
-                    }
-//                }
-//            } catch (InterruptedException eTimeout) {
-//                logger.error("Available connection not found", eTimeout);
-//                throw new SQLException(eTimeout.getMessage());
-//            } finally {
-//                this.connectionQueueLock.unlock();
-//            }
+            if (this.connectionQueueLock.tryLock(100, TimeUnit.MILLISECONDS)) {
+                if (this.availableConnectionQueue.size() <
+                        Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.min.opened"))
+                        && (this.availableConnectionQueue.size() + this.grantedConnectionQueue.size()) <
+                        Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.max.opened"))) {
+                    this.availableConnectionQueue.offer(new PooledConnection(ConnectionPool.PROPERTIES),
+                            100, TimeUnit.MILLISECONDS);
+                }
+                connectionQueueLock.unlock();
+            }
+            PooledConnection pooledConnection = this.availableConnectionQueue.poll(100, TimeUnit.MILLISECONDS);
+            this.grantedConnectionQueue.offer(pooledConnection);
+            return pooledConnection;
+        } catch (InterruptedException e) {
+            logger.error("Get connection interrupted" , e);
+            throw new SQLException();
         }
-        throw new SQLException("Available connection not found");
     }
 
     @Override
@@ -123,55 +111,27 @@ public class ConnectionPool implements DataSource {
                 ("Get connection should be requested with predefined in properties username and password");
     }
 
-    void releaseConnection(PooledConnection pooledConnection) throws InterruptedException, SQLException {
-        this.grantedConnectionQueue.remove(pooledConnection);
-        this.availableConnectionQueue.offer(pooledConnection);
-//        if (this.connectionQueueLock.tryLock(10, TimeUnit.MILLISECONDS)) {
-//            if (this.lastAvailableQueueSize.get() > this.availableConnectionQueue.size()) {
-//                this.availableConnectionQueue.offer(pooledConnection);
-//            } else {
-//                if (this.lastAvailableQueueSize.get() > this.availableConnectionQueue.size() -
-//                        Integer.valueOf(ConnectionPool.PROPERTIES.getProperty("db.connections.min.opened"))) {
-//                    this.availableConnectionQueue.offer(pooledConnection);
-//                } else {
-//                    pooledConnection.setShutdownProcess(true);
-//                    pooledConnection.close();
-//                }
-//            }
-//            this.lastAvailableQueueSize.set(this.availableConnectionQueue.size());
-//        }
-        logger.info("Granted connection released (total available: {})", this.availableConnectionQueue.size());
+    void releaseConnection(PooledConnection pooledConnection) throws SQLException {
+        try {
+            this.availableConnectionQueue.offer(pooledConnection, 100, TimeUnit.MILLISECONDS);
+            this.grantedConnectionQueue.remove(pooledConnection);
+            logger.info("Granted connection released (total granted: {}, total available: {})",
+                    this.grantedConnectionQueue.size(), this.availableConnectionQueue.size());
+
+        } catch (InterruptedException e) {
+            logger.error("Release connection interrupted" , e);
+            throw new SQLException();
+        }
     }
 
     public void shutdown() {
         logger.info("Shutdown initiated");
-        Executor executor = Executors.newSingleThreadExecutor();
-//        executor.execute(new Runnable() {
-//            @Override
-//            public void run() {
-//                for (PooledConnection pooledConnection : this.grantedConnectionQueue)
-//                    pooledConnection.setShutdownProcess(true);
-//                boolean allClosed = false;
-//                PooledConnection pooledConnection = null;
-//                while (!allClosed) {
-//                    allClosed = true;
-//                    try {
-//                        for (PooledConnection grantedPooledConnection : this.grantedConnectionQueue) {
-//                            pooledConnection = grantedPooledConnection;
-//                            if (pooledConnection.isClosed()) {
-//                                this.grantedConnectionQueue.remove(pooledConnection);
-//                                break;
-//                            } else {
-//                                allClosed = false;
-//                            }
-//                        }
-//                    } catch (SQLException e) {
-//                        logger.error("Connection shutdown error", e);
-//                        ConnectionPool.grantedConnectionQueue.remove(pooledConnection);
-//                    }
-//                }
-//            }
-//        });
+        this.shutdownPool.set(true);
+        PooledConnection pooledConnection;
+        do {
+            pooledConnection = this.availableConnectionQueue.poll();
+        }
+        while (this.grantedConnectionQueue.size() > 0);
     }
 
     @Override

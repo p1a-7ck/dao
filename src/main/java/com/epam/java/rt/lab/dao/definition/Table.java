@@ -1,4 +1,4 @@
-package com.epam.java.rt.lab.entity;
+package com.epam.java.rt.lab.dao.definition;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -8,8 +8,8 @@ import java.lang.annotation.Target;
 /**
  * dao
  */
-@Target(ElementType.FIELD)
+@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface RelationTable {
-    String value() default "";
+public @interface Table {
+    String tableName() default "";
 }

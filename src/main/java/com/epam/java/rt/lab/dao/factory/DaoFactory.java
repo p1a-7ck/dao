@@ -42,6 +42,6 @@ public abstract class DaoFactory {
         return DaoFactory.connectionPool;
     }
 
-    public abstract ReflectiveJdbcDao getReflectiveJdbcDao();
+    public abstract ReflectiveJdbcDao getReflectiveJdbcDao() throws IOException, NoSuchMethodException, ClassNotFoundException;
 
 }

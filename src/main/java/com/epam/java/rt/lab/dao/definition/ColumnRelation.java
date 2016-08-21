@@ -1,4 +1,4 @@
-package com.epam.java.rt.lab.entity;
+package com.epam.java.rt.lab.dao.definition;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -10,6 +10,9 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface TableColumn {
-    String value() default "";
+public @interface ColumnRelation {
+    String columnName() default "";
+    String columnValueType();
+    String columnTableName();
+    String columnTableColumnName() default "";
 }

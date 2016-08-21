@@ -101,7 +101,7 @@ public class PooledConnection implements Connection {
                     ConnectionPool.getInstance().releaseConnection(this);
                     done = true;
                     logger.info("Pooled connection released");
-                } catch (InterruptedException | IOException e) {
+                } catch (IOException e) {
                     done = false;
                     logger.error("Pooled connection release error", e);
                 }

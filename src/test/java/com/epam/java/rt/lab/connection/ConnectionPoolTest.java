@@ -92,9 +92,11 @@ public class ConnectionPoolTest {
 
         ResultObject.returnResult.set(true);
 
+        currentTime = new Date().getTime();
         ResultObject finalResult;
         List<ResultObject> finalResults = new ArrayList<>();
-        while (finalResults.size() < countThreads) {
+        while (finalResults.size() < countThreads &&
+                TimeUnit.MILLISECONDS.toMinutes(new Date().getTime() - currentTime) < testDurationMinutes) {
             for (int i = 0; i < results.size(); i++) {
                 try {
                     finalResult = (ResultObject) results.get(i).get(10, TimeUnit.MILLISECONDS);
@@ -112,6 +114,7 @@ public class ConnectionPoolTest {
             countConnectionsAll = countConnectionsAll + result.countConnections;
             countNoConnectionsAll = countNoConnectionsAll + result.countNoConnection;
         }
+        ConnectionPool.getInstance().shutdown();
         System.out.println("Granted connections = " + countConnectionsAll + " / " + (countNoConnectionsAll + countConnectionsAll));
         assertEquals("Number of connections not equal", countConnectionsAll, ConnectionPool.getInstance().countConnections.get());
     }

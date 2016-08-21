@@ -34,15 +34,16 @@ public class DaoTest {
     @Test
     public void createTest() throws Exception {
         Connection connection = factory.getConnectionPool().getConnection();
-        String sqlExpression = dao.createTableExpression(Permission.class);
+        String sqlExpression = dao.generateCreateTableExpression(Permission.class);
         dao.execute(connection, sqlExpression);
-        assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"Permission\""));
-        sqlExpression = dao.createTableExpression(Role.class);
+        assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"PERMISSION\""));
+        sqlExpression = dao.generateCreateTableExpression(Role.class);
         dao.execute(connection, sqlExpression);
-        assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"Role\""));
-        sqlExpression = dao.createTableExpression(User.class);
+        assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"ROLE\""));
+        sqlExpression = dao.generateCreateTableExpression(User.class);
         dao.execute(connection, sqlExpression);
-        assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"User\""));
+        assertTrue("Table create error", dao.execute(connection, "SELECT * FROM \"USER\""));
+        connection.close();
     }
 
     @Test
@@ -58,25 +59,26 @@ public class DaoTest {
         dao.insert(connection, role);
         dao.insert(connection, user);
 
+        connection.close();
     }
 
     @Test
     public void createAndInsertSomeTest() throws Exception {
-        Connection connection = factory.getConnectionPool().getConnection();
-        String sqlExpression = dao.createTableExpression(SomeEntity.class);
-        dao.execute(connection, sqlExpression);
-
-        sqlExpression = dao.createTableExpression(SomeAnotherEntity.class);
-        dao.execute(connection, sqlExpression);
-
-        SomeEntity someEntity = new SomeEntity();
-        someEntity.setName("someEntity2");
-        dao.insert(connection, someEntity);
-
-        SomeAnotherEntity someAnotherEntity = new SomeAnotherEntity();
-        someAnotherEntity.setName("someAnotherEntity2");
-        someAnotherEntity.setSomeEntity(someEntity);
-        dao.insert(connection, someAnotherEntity);
+//        Connection connection = factory.getConnectionPool().getConnection();
+//        String sqlExpression = dao.generateCreateTableExpression(SomeEntity.class);
+//        dao.execute(connection, sqlExpression);
+//
+//        sqlExpression = dao.generateCreateTableExpression(SomeAnotherEntity.class);
+//        dao.execute(connection, sqlExpression);
+//
+//        SomeEntity someEntity = new SomeEntity();
+//        someEntity.setName("someEntity2");
+//        dao.insert(connection, someEntity);
+//
+//        SomeAnotherEntity someAnotherEntity = new SomeAnotherEntity();
+//        someAnotherEntity.setName("someAnotherEntity2");
+//        someAnotherEntity.setSomeEntity(someEntity);
+//        dao.insert(connection, someAnotherEntity);
 
     }
 

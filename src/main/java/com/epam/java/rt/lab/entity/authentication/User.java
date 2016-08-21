@@ -1,8 +1,9 @@
 package com.epam.java.rt.lab.entity.authentication;
 
+import com.epam.java.rt.lab.dao.definition.Column;
+import com.epam.java.rt.lab.dao.definition.ColumnRelationMany;
+import com.epam.java.rt.lab.dao.definition.Table;
 import com.epam.java.rt.lab.entity.BaseEntity;
-import com.epam.java.rt.lab.entity.RelationTable;
-import com.epam.java.rt.lab.entity.TableColumn;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,24 +11,30 @@ import java.util.List;
 /**
  * com.epam.java.rt.lab.dao
  */
+@Table(tableName = "USER")
 public class User extends BaseEntity {
-    @TableColumn("? VARCHAR(255)")
+
+    @Column(columnName = "LOGIN", columnValueType = "VARCHAR(255)")
     private String login;
-    @TableColumn("? VARCHAR(255)")
+
+    @Column(columnName = "PASS", columnValueType = "VARCHAR(255)")
     private String pass;
-    //@TableColumn("FOREIGN KEY(ID) REFERENCES \"Role\"(ID)")
-    @RelationTable("\"UserRole\" " +
-            "id IDENTITY PRIMARY KEY, " +
-            "userId BIGINT REFERENCES \"User\", " +
-            "roleId BIGINT REFERENCES \"Role\"")
+
+    @ColumnRelationMany(tableName = "USERROLE",
+            tableColumnNames = {"ID", "USERID", "ROLEID"},
+            tableColumnValueTypes = {"IDENTITY PRIMARY KEY", "BIGINT", "BIGINT"},
+            tableColumnReferencesTableName = {"", "USER", "ROLE"},
+            tableColumnReferencesTableColumnName = {"", "ID", "ID"})
     private List<Role> roleList;
 
     public User() {
         this.roleList = new ArrayList<>();
     }
 
+    @Override
     public Long getId() { return super.getId(); }
 
+    @Override
     public void setId(Long id) { super.setId(id); }
 
     public String getLogin() {

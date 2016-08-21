@@ -1,22 +1,28 @@
 package com.epam.java.rt.lab.entity.authentication;
 
+import com.epam.java.rt.lab.dao.definition.Table;
 import com.epam.java.rt.lab.entity.BaseEntity;
-import com.epam.java.rt.lab.entity.TableColumn;
+import com.epam.java.rt.lab.dao.definition.Column;
 
 /**
  * com.epam.java.rt.lab.dao
  */
+@Table(tableName = "PERMISSION")
 public class Permission<T> extends BaseEntity {
-    @TableColumn("? VARCHAR(255)")
+
+    @Column(columnName = "NAME", columnValueType = "VARCHAR(255)")
     private String name;
-    @TableColumn("? VARCHAR(255)") // FOREIGN KEY(value) REFERENCES
+
+    @Column(columnName = "VALUE", columnValueType = "VARCHAR(255)") // FOREIGN KEY(value) REFERENCES
     private T value;
 
     public Permission() {
     }
 
+    @Override
     public Long getId() { return super.getId(); }
 
+    @Override
     public void setId(Long id) { super.setId(id); }
 
     public String getName() {

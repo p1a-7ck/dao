@@ -1,10 +1,12 @@
 package com.epam.java.rt.lab.entity;
 
+import com.epam.java.rt.lab.dao.definition.Column;
+
 /**
  * dao
  */
 public abstract class BaseEntity {
-    @TableColumn("? IDENTITY PRIMARY KEY")
+    @Column(columnName = "ID", columnValueType = "IDENTITY PRIMARY KEY")
     private Long id;
 
     public BaseEntity() {
